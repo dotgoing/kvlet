@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use reqwest::Url;
 use tabled::Table;
 
 mod lib;
@@ -48,7 +49,7 @@ struct Set {
     /// Specify the state
     #[clap(short, long)]
     state: String,
-    #[clap(short, long)]
+    #[clap(short, long,parse(try_from_str=parse_url))]
     url: Option<String>,
     #[clap(short, long, parse(try_from_str=parse_method))]
     method: Option<Method>,
@@ -56,6 +57,11 @@ struct Set {
 
 fn parse_method(s: &str) -> Result<Method> {
     s.parse()
+}
+
+fn parse_url(s: &str) -> Result<String> {
+    let _url: Url = s.parse()?;
+    Ok(s.into())
 }
 
 #[tokio::main]
