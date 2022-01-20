@@ -32,7 +32,7 @@ struct Get {
 /// Delete files according the given args
 #[derive(Parser, Debug)]
 struct List {
-    /// List the latest n items
+    /// List the latest n records
     #[clap(short, long)]
     num: Option<usize>,
     /// Specify the state
@@ -80,14 +80,14 @@ async fn main() -> Result<()> {
 
 fn get(arg: &Get) -> Result<()> {
     let records = lib::get(&arg.key)?;
-    let table = Table::new(records).to_string();
-    println!("{}", table);
+    match records.get(0) {
+        Some(r) => println!("{}", &r.state),
+        _ => println!(""),
+    }
     Ok(())
 }
 
 fn set(arg: &Set) -> Result<()> {
-    let get = Some("get".to_string());
-    // let get = &get;
     match (&arg.method, &arg.url) {
         (Some(d), Some(k)) => 3,
         _ => 3,
