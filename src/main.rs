@@ -1,8 +1,8 @@
 use anyhow::Result;
 use clap::Parser;
+use tabled::Table;
 
 mod lib;
-use lib::*;
 
 /// A tool to delete the oldest files
 #[derive(Parser, Debug)]
@@ -56,27 +56,32 @@ struct Set {
 #[tokio::main]
 async fn main() -> Result<()> {
     let opts: Opts = Opts::parse();
-    match opts.subcmd {
+    let result = match opts.subcmd {
         SubCommand::Get(ref args) => get(args),
         SubCommand::Set(ref args) => set(args),
         SubCommand::List(ref args) => list(args),
     };
+    if let Err(e) = result {
+        println!("{}", e);
+    }
     Ok(())
 }
 
-fn get(arg: &Get) {
-    println!("{:?}", arg);
-    let records = lib::get(&arg.key).unwrap();
-    println!("{:?}", records);
+fn get(arg: &Get) -> Result<()> {
+    let records = lib::get(&arg.key)?;
+    let table = Table::new(records).to_string();
+    println!("{}", table);
+    Ok(())
 }
 
-fn set(arg: &Set) {
-    println!("{:?}", arg);
-    lib::set(&arg.key, &arg.state).unwrap();
+fn set(arg: &Set) -> Result<()> {
+    lib::set(&arg.key, &arg.state)?;
+    Ok(())
 }
 
-fn list(arg: &List) {
-    println!("{:?}", arg);
-    let records = lib::list(arg.num.unwrap_or_else(|| 10)).unwrap();
-    println!("{:?}", records);
+fn list(arg: &List) -> Result<()> {
+    let records = lib::list(arg.num.unwrap_or_else(|| 10))?;
+    let table = Table::new(records).to_string();
+    println!("{}", table);
+    Ok(())
 }

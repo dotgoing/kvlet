@@ -1,15 +1,42 @@
 use anyhow::{anyhow, Result};
 use rusqlite::named_params;
 use rusqlite::Connection;
+use tabled::Tabled;
 
-#[derive(Debug)]
+#[derive(Debug, Tabled)]
 pub struct Record {
     pub id: String,
     pub state: String,
-    pub url: Option<String>,
+    pub method: String,
+    pub url: String,
+    pub response_code: String,
+    pub response: String,
+}
+
+#[derive(Debug)]
+struct Item {
+    pub id: String,
+    pub state: String,
     pub method: Option<String>,
+    pub url: Option<String>,
     pub response_code: Option<usize>,
     pub response: Option<String>,
+}
+
+impl Item {
+    fn show(self) -> Record {
+        Record {
+            id: self.id,
+            state: self.state,
+            method: self.method.unwrap_or_else(|| "".to_string()),
+            url: self.url.unwrap_or_else(|| "".to_string()),
+            response_code: self
+                .response_code
+                .map(|it| it.to_string())
+                .unwrap_or_else(|| "".to_string()),
+            response: self.response.unwrap_or_else(|| "".to_string()),
+        }
+    }
 }
 
 fn get_db() -> Result<Connection> {
@@ -30,8 +57,7 @@ fn get_db() -> Result<Connection> {
 
 pub fn set(id: &str, state: &str) -> Result<()> {
     let conn = get_db()?;
-    let err = |_| anyhow!(format!("fail to save {}->{}", id, state));
-
+    let err = |e| anyhow!(format!("fail to save {}, {}", id, e));
     let mut stmt = conn
         .prepare("INSERT INTO kvlet (id, state) VALUES (:id, :state)")
         .map_err(err)?;
@@ -46,7 +72,7 @@ pub fn get(id: &str) -> Result<Vec<Record>> {
     let mut rows = stmt.query(&[(":id", id)])?;
     let mut records = vec![];
     while let Some(row) = rows.next()? {
-        let r = Record {
+        let r = Item {
             id: row.get(0)?,
             state: row.get(1)?,
             url: None,
@@ -56,7 +82,7 @@ pub fn get(id: &str) -> Result<Vec<Record>> {
         };
         records.push(r);
     }
-    Ok(records)
+    Ok(records.into_iter().map(|r| r.show()).collect())
 }
 
 pub fn list(num: usize) -> Result<Vec<Record>> {
@@ -65,7 +91,7 @@ pub fn list(num: usize) -> Result<Vec<Record>> {
     let mut rows = stmt.query(&[(":num", &num.to_string())])?;
     let mut records = vec![];
     while let Some(row) = rows.next()? {
-        let r = Record {
+        let r = Item {
             id: row.get(0)?,
             state: row.get(1)?,
             url: None,
@@ -75,5 +101,5 @@ pub fn list(num: usize) -> Result<Vec<Record>> {
         };
         records.push(r);
     }
-    Ok(records)
+    Ok(records.into_iter().map(|r| r.show()).collect())
 }

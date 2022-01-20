@@ -11,4 +11,5 @@ clap = {version = "3.0.7", features = ["derive"]}
 fs2 = "0.4.3" 
 regex = "1.5.4" 
 rusqlite = "0.26.1" 
+tabled = "0.4.2"
 tokio = {version = "1", features = ["full"]}# 异步处理库
