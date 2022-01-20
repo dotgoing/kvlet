@@ -1,0 +1,14 @@
+[package]
+edition = "2021"
+name = "kvlet"
+version = "0.1.0"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[dependencies]
+anyhow = "1" # 错误处理
+chrono = "0.4" 
+clap = {version = "3.0.7", features = ["derive"]}
+fs2 = "0.4.3" 
+regex = "1.5.4" 
+rusqlite = "0.26.1" 
+tokio = {version = "1", features = ["full"]}# 异步处理库
