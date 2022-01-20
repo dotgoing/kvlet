@@ -3,6 +3,7 @@ use clap::Parser;
 use tabled::Table;
 
 mod lib;
+use lib::Method;
 
 /// A tool to delete the oldest files
 #[derive(Parser, Debug)]
@@ -49,8 +50,12 @@ struct Set {
     state: String,
     #[clap(short, long)]
     url: Option<String>,
-    #[clap(short, long)]
-    method: Option<String>,
+    #[clap(short, long, parse(try_from_str=parse_method))]
+    method: Option<Method>,
+}
+
+fn parse_method(s: &str) -> Result<Method> {
+    s.parse()
 }
 
 #[tokio::main]
@@ -75,6 +80,12 @@ fn get(arg: &Get) -> Result<()> {
 }
 
 fn set(arg: &Set) -> Result<()> {
+    let get = Some("get".to_string());
+    // let get = &get;
+    match (&arg.method, &arg.url) {
+        (Some(d), Some(k)) => 3,
+        _ => 3,
+    };
     lib::set(&arg.key, &arg.state)?;
     Ok(())
 }
