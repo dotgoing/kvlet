@@ -84,6 +84,33 @@ fn get_db() -> Result<Connection> {
 
 pub fn set(record: InRecord) -> Result<usize> {
     let conn = get_db()?;
+    fn compose(m: Option<String>, u: Option<String>) -> Option<Notify> {
+        match (m, u) {
+            (Some(method), Some(url)) => Some(Notify { method, url }),
+            _ => None,
+        }
+    }
+    match get_table_item(&record.id)? {
+        Some(TableItem { method, url, .. }) => update(
+            &conn,
+            InRecord {
+                id: record.id,
+                state: record.state,
+                notify: record.notify.or(compose(method, url)),
+            },
+        ),
+        None => create(
+            &conn,
+            InRecord {
+                id: record.id,
+                state: record.state,
+                notify: record.notify,
+            },
+        ),
+    }
+}
+
+fn create(conn: &Connection, record: InRecord) -> Result<usize> {
     let now = Local::now().timestamp_millis();
     let mut stmt = conn.prepare("INSERT INTO kvlet (id, state,method,url, create_at,update_at) VALUES (:id, :state,:method,:url, :create_at,:update_at)")?;
     let InRecord { id, state, notify } = record;
@@ -108,13 +135,41 @@ pub fn set(record: InRecord) -> Result<usize> {
     Ok(affect)
 }
 
+fn update(conn: &Connection, record: InRecord) -> Result<usize> {
+    let now = Local::now().timestamp_millis();
+    let InRecord { id, state, notify } = record;
+    let affect = match notify {
+        Some(Notify { method, url }) => conn
+            .prepare("UPDATE kvlet set state = :state, method = :method, url = :url, update_at = :update_at where id = :id")?
+            .execute(named_params! {
+               ":id": id,
+               ":state": state,
+               ":method": method,
+               ":url": url,
+               ":update_at": now
+            })?,
+        None => conn
+            .prepare("UPDATE kvlet set state = :state,update_at = :update_at  where id = :id")?
+            .execute(named_params! {
+               ":id": id,
+               ":state": state,
+               ":update_at": now
+            })?,
+    };
+    Ok(affect)
+}
+
 pub fn get(id: &str) -> Result<Option<OutRecord>> {
+    get_table_item(id).map(|o| o.map(|t| t.show()))
+}
+
+fn get_table_item(id: &str) -> Result<Option<TableItem>> {
     let conn = get_db()?;
     let mut stmt = conn.prepare("SELECT * FROM kvlet where id = :id")?;
     let mut rows = stmt.query(&[(":id", id)])?;
     let records = parse_rows(&mut rows)?;
     for record in records {
-        return Ok(Some(record.show()));
+        return Ok(Some(record));
     }
     Ok(None)
 }
@@ -129,12 +184,19 @@ pub fn list(num: usize) -> Result<Vec<OutRecord>> {
 
 fn parse_rows(rows: &mut Rows) -> Result<Vec<TableItem>> {
     let mut records = vec![];
+    fn str_op(s: String) -> Option<String> {
+        if s.len() == 0 {
+            None
+        } else {
+            Some(s)
+        }
+    }
     while let Some(row) = rows.next()? {
         records.push(TableItem {
             id: row.get(0)?,
             state: row.get(1)?,
-            method: row.get(2)?,
-            url: row.get(3)?,
+            method: str_op(row.get(2)?),
+            url: str_op(row.get(3)?),
             response_code: None,
             response: None,
             create_at: row.get(6)?,
