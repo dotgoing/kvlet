@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use chrono::prelude::*;
 use rusqlite::named_params;
 use rusqlite::Connection;
@@ -12,6 +12,8 @@ pub struct Record {
     pub url: String,
     pub response_code: String,
     pub response: String,
+    pub create_at: String,
+    pub update_at: String,
 }
 
 #[derive(Debug)]
@@ -22,6 +24,8 @@ struct Item {
     pub url: Option<String>,
     pub response_code: Option<usize>,
     pub response: Option<String>,
+    pub create_at: i64,
+    pub update_at: i64,
 }
 
 impl Item {
@@ -36,7 +40,13 @@ impl Item {
                 .map(|it| it.to_string())
                 .unwrap_or_else(|| "".to_string()),
             response: self.response.unwrap_or_else(|| "".to_string()),
+            create_at: Self::from_time(self.create_at),
+            update_at: Self::from_time(self.update_at),
         }
+    }
+
+    fn from_time(time: i64) -> String {
+        Local.timestamp_millis(time).to_string()
     }
 }
 
@@ -60,18 +70,15 @@ fn get_db() -> Result<Connection> {
 
 pub fn set(id: &str, state: &str) -> Result<()> {
     let conn = get_db()?;
-    let err = |e| anyhow!(format!("fail to save {}, {}", id, e));
-    let now = Utc::now().timestamp();
+    let now = Local::now().timestamp_millis();
     let mut stmt = conn
-        .prepare("INSERT INTO kvlet (id, state, create_at,update_at) VALUES (:id, :state, :create_at,:update_at)")
-        .map_err(err)?;
+        .prepare("INSERT INTO kvlet (id, state, create_at,update_at) VALUES (:id, :state, :create_at,:update_at)")?;
     stmt.execute(named_params! {
        ":id": id,
        ":state": state,
        ":create_at": now,
        ":update_at": now
-    })
-    .map_err(err)?;
+    })?;
     Ok(())
 }
 
@@ -80,6 +87,7 @@ pub fn get(id: &str) -> Result<Vec<Record>> {
     let mut stmt = conn.prepare("SELECT * FROM kvlet where id = :id")?;
     let mut rows = stmt.query(&[(":id", id)])?;
     let mut records = vec![];
+
     while let Some(row) = rows.next()? {
         let r = Item {
             id: row.get(0)?,
@@ -88,6 +96,8 @@ pub fn get(id: &str) -> Result<Vec<Record>> {
             method: None,
             response_code: None,
             response: None,
+            create_at: row.get(6)?,
+            update_at: row.get(7)?,
         };
         records.push(r);
     }
@@ -107,6 +117,8 @@ pub fn list(num: usize) -> Result<Vec<Record>> {
             method: None,
             response_code: None,
             response: None,
+            create_at: row.get(6)?,
+            update_at: row.get(7)?,
         };
         records.push(r);
     }
