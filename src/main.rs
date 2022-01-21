@@ -4,7 +4,7 @@ use reqwest::Url;
 use tabled::Table;
 
 mod lib;
-use lib::Method;
+use lib::*;
 
 /// A tool to delete the oldest files
 #[derive(Parser, Debug)]
@@ -88,19 +88,22 @@ fn get(arg: &Get) -> Result<()> {
 }
 
 fn set(arg: &Set) -> Result<()> {
-    match (&arg.method, &arg.url) {
-        (Some(method), Some(url)) => lib::set(
-            &arg.key,
-            &arg.state,
-            Some((method.to_string(), url.to_string())),
-        )?,
-        (None, Some(url)) => lib::set(
-            &arg.key,
-            &arg.state,
-            Some(("get".to_string(), url.to_string())),
-        )?,
-        _ => lib::set(&arg.key, &arg.state, None)?,
+    let notify = match (&arg.method, &arg.url) {
+        (Some(method), Some(url)) => Some(Notify {
+            method: method.to_string(),
+            url: url.to_string(),
+        }),
+        (None, Some(url)) => Some(Notify {
+            method: "get".to_string(),
+            url: url.to_string(),
+        }),
+        _ => None,
     };
+    lib::set(InRecord {
+        id: arg.key.to_string(),
+        state: arg.state.to_string(),
+        notify,
+    })?;
     Ok(())
 }
 

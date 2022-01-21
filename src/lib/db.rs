@@ -4,6 +4,7 @@ use rusqlite::named_params;
 use rusqlite::{Connection, Rows};
 use tabled::Tabled;
 
+/// 输出给用户可见的对象
 #[derive(Debug, Tabled)]
 pub struct OutRecord {
     pub id: String,
@@ -16,11 +17,19 @@ pub struct OutRecord {
     pub update_at: String,
 }
 
-pub struct Notify {
-    method: String,
-    url: String,
+pub struct InRecord {
+    pub id: String,
+    pub state: String,
+    pub notify: Option<Notify>,
 }
 
+/// 是否要通知
+pub struct Notify {
+    pub method: String,
+    pub url: String,
+}
+
+/// 数据库每一行对应的对象
 #[derive(Debug)]
 struct TableItem {
     pub id: String,
@@ -73,14 +82,13 @@ fn get_db() -> Result<Connection> {
     Ok(conn)
 }
 
-pub fn set(id: &str, state: &str, notify: Option<(String, String)>) -> Result<usize> {
+pub fn set(record: InRecord) -> Result<usize> {
     let conn = get_db()?;
     let now = Local::now().timestamp_millis();
-    let mut stmt = conn
-        .prepare("INSERT INTO kvlet (id, state,method,url, create_at,update_at) VALUES (:id, :state,:method,:url, :create_at,:update_at)")?;
-
+    let mut stmt = conn.prepare("INSERT INTO kvlet (id, state,method,url, create_at,update_at) VALUES (:id, :state,:method,:url, :create_at,:update_at)")?;
+    let InRecord { id, state, notify } = record;
     let affect = match notify {
-        Some((method, url)) => stmt.execute(named_params! {
+        Some(Notify { method, url }) => stmt.execute(named_params! {
            ":id": id,
            ":state": state,
            ":method": method,
