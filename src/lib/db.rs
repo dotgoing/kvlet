@@ -1,11 +1,11 @@
 use anyhow::Result;
 use chrono::prelude::*;
 use rusqlite::named_params;
-use rusqlite::Connection;
+use rusqlite::{Connection, Rows};
 use tabled::Tabled;
 
 #[derive(Debug, Tabled)]
-pub struct Record {
+pub struct OutRecord {
     pub id: String,
     pub state: String,
     pub method: String,
@@ -16,8 +16,13 @@ pub struct Record {
     pub update_at: String,
 }
 
+pub struct Notify {
+    method: String,
+    url: String,
+}
+
 #[derive(Debug)]
-struct Item {
+struct TableItem {
     pub id: String,
     pub state: String,
     pub method: Option<String>,
@@ -28,9 +33,9 @@ struct Item {
     pub update_at: i64,
 }
 
-impl Item {
-    fn show(self) -> Record {
-        Record {
+impl TableItem {
+    fn show(self) -> OutRecord {
+        OutRecord {
             id: self.id,
             state: self.state,
             method: self.method.unwrap_or_else(|| "".to_string()),
@@ -56,8 +61,8 @@ fn get_db() -> Result<Connection> {
         "create table if not exists kvlet (
              id TEXT primary key,
              state TEXT not null,
-             url TEXT,
              method TEXT,
+             url TEXT,
              response_code INTEGER,
              response TEXT,
              create_at INTEGER not null,
@@ -68,63 +73,65 @@ fn get_db() -> Result<Connection> {
     Ok(conn)
 }
 
-pub fn set(id: &str, state: &str) -> Result<()> {
+pub fn set(id: &str, state: &str, notify: Option<(String, String)>) -> Result<usize> {
     let conn = get_db()?;
     let now = Local::now().timestamp_millis();
     let mut stmt = conn
-        .prepare("INSERT INTO kvlet (id, state, create_at,update_at) VALUES (:id, :state, :create_at,:update_at)")?;
-    stmt.execute(named_params! {
-       ":id": id,
-       ":state": state,
-       ":create_at": now,
-       ":update_at": now
-    })?;
-    Ok(())
+        .prepare("INSERT INTO kvlet (id, state,method,url, create_at,update_at) VALUES (:id, :state,:method,:url, :create_at,:update_at)")?;
+
+    let affect = match notify {
+        Some((method, url)) => stmt.execute(named_params! {
+           ":id": id,
+           ":state": state,
+           ":method": method,
+           ":url": url,
+           ":create_at": now,
+           ":update_at": now
+        })?,
+        None => stmt.execute(named_params! {
+           ":id": id,
+           ":state": state,
+           ":method": "",
+           ":url": "",
+           ":create_at": now,
+           ":update_at": now
+        })?,
+    };
+    Ok(affect)
 }
 
-pub fn get(id: &str) -> Result<Option<Record>> {
+pub fn get(id: &str) -> Result<Option<OutRecord>> {
     let conn = get_db()?;
     let mut stmt = conn.prepare("SELECT * FROM kvlet where id = :id")?;
     let mut rows = stmt.query(&[(":id", id)])?;
-    let mut records = vec![];
-
-    while let Some(row) = rows.next()? {
-        let r = Item {
-            id: row.get(0)?,
-            state: row.get(1)?,
-            url: None,
-            method: None,
-            response_code: None,
-            response: None,
-            create_at: row.get(6)?,
-            update_at: row.get(7)?,
-        };
-        records.push(r);
-    }
-
+    let records = parse_rows(&mut rows)?;
     for record in records {
         return Ok(Some(record.show()));
     }
     Ok(None)
 }
 
-pub fn list(num: usize) -> Result<Vec<Record>> {
+pub fn list(num: usize) -> Result<Vec<OutRecord>> {
     let conn = get_db()?;
     let mut stmt = conn.prepare("SELECT * FROM kvlet ORDER BY create_at DESC limit :num")?;
     let mut rows = stmt.query(&[(":num", &num.to_string())])?;
+    let records = parse_rows(&mut rows)?;
+    Ok(records.into_iter().map(|r| r.show()).collect())
+}
+
+fn parse_rows(rows: &mut Rows) -> Result<Vec<TableItem>> {
     let mut records = vec![];
     while let Some(row) = rows.next()? {
-        let r = Item {
+        records.push(TableItem {
             id: row.get(0)?,
             state: row.get(1)?,
-            url: None,
-            method: None,
+            method: row.get(2)?,
+            url: row.get(3)?,
             response_code: None,
             response: None,
             create_at: row.get(6)?,
             update_at: row.get(7)?,
-        };
-        records.push(r);
+        });
     }
-    Ok(records.into_iter().map(|r| r.show()).collect())
+    Ok(records)
 }

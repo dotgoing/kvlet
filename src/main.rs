@@ -89,10 +89,18 @@ fn get(arg: &Get) -> Result<()> {
 
 fn set(arg: &Set) -> Result<()> {
     match (&arg.method, &arg.url) {
-        (Some(d), Some(k)) => 3,
-        _ => 3,
+        (Some(method), Some(url)) => lib::set(
+            &arg.key,
+            &arg.state,
+            Some((method.to_string(), url.to_string())),
+        )?,
+        (None, Some(url)) => lib::set(
+            &arg.key,
+            &arg.state,
+            Some(("get".to_string(), url.to_string())),
+        )?,
+        _ => lib::set(&arg.key, &arg.state, None)?,
     };
-    lib::set(&arg.key, &arg.state)?;
     Ok(())
 }
 
