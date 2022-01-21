@@ -110,7 +110,7 @@ pub fn get(id: &str) -> Result<Option<Record>> {
 
 pub fn list(num: usize) -> Result<Vec<Record>> {
     let conn = get_db()?;
-    let mut stmt = conn.prepare("SELECT * FROM kvlet limit :num")?;
+    let mut stmt = conn.prepare("SELECT * FROM kvlet ORDER BY create_at DESC limit :num")?;
     let mut rows = stmt.query(&[(":num", &num.to_string())])?;
     let mut records = vec![];
     while let Some(row) = rows.next()? {
