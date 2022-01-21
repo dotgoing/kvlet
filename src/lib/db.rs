@@ -1,7 +1,7 @@
 use anyhow::{anyhow, Result};
+use chrono::prelude::*;
 use rusqlite::named_params;
 use rusqlite::Connection;
-use std::time::{Duration, SystemTime};
 use tabled::Tabled;
 
 #[derive(Debug, Tabled)]
@@ -61,12 +61,7 @@ fn get_db() -> Result<Connection> {
 pub fn set(id: &str, state: &str) -> Result<()> {
     let conn = get_db()?;
     let err = |e| anyhow!(format!("fail to save {}, {}", id, e));
-
-    let now = match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
-        Ok(n) => n.as_secs(),
-        Err(_) => 0,
-    };
-
+    let now = Utc::now().timestamp();
     let mut stmt = conn
         .prepare("INSERT INTO kvlet (id, state, create_at,update_at) VALUES (:id, :state, :create_at,:update_at)")
         .map_err(err)?;
