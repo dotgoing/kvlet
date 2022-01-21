@@ -79,10 +79,10 @@ async fn main() -> Result<()> {
 }
 
 fn get(arg: &Get) -> Result<()> {
-    let records = lib::get(&arg.key)?;
-    match records.get(0) {
-        Some(r) => println!("{}", &r.state),
-        _ => println!(""),
+    match lib::get(&arg.key) {
+        Ok(Some(r)) => println!("{}", &r.state),
+        Ok(None) => println!(""),
+        Err(e) => println!("{}", e),
     }
     Ok(())
 }

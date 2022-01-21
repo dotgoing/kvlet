@@ -82,7 +82,7 @@ pub fn set(id: &str, state: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn get(id: &str) -> Result<Vec<Record>> {
+pub fn get(id: &str) -> Result<Option<Record>> {
     let conn = get_db()?;
     let mut stmt = conn.prepare("SELECT * FROM kvlet where id = :id")?;
     let mut rows = stmt.query(&[(":id", id)])?;
@@ -101,7 +101,11 @@ pub fn get(id: &str) -> Result<Vec<Record>> {
         };
         records.push(r);
     }
-    Ok(records.into_iter().map(|r| r.show()).collect())
+
+    for record in records {
+        return Ok(Some(record.show()));
+    }
+    Ok(None)
 }
 
 pub fn list(num: usize) -> Result<Vec<Record>> {
