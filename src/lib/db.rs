@@ -1,11 +1,11 @@
 use super::hGet;
 use super::post;
+use super::Method;
 use super::Response;
 use anyhow::Result;
 use chrono::prelude::*;
 use rusqlite::named_params;
 use rusqlite::{Connection, Rows};
-use serde::__private::de::IdentifierDeserializer;
 use tabled::Tabled;
 
 /// 输出给用户可见的对象
@@ -13,7 +13,7 @@ use tabled::Tabled;
 pub struct OutRecord {
     pub id: String,
     pub state: String,
-    pub method: String,
+    pub method: Method,
     pub url: String,
     pub response_code: String,
     pub response: String,
@@ -29,7 +29,7 @@ pub struct InRecord {
 
 /// 是否要通知
 pub struct Notify {
-    pub method: String,
+    pub method: Method,
     pub url: String,
 }
 
@@ -38,7 +38,7 @@ pub struct Notify {
 struct TableItem {
     pub id: String,
     pub state: String,
-    pub method: Option<String>,
+    pub method: Option<Method>,
     pub url: Option<String>,
     pub response_code: Option<u16>,
     pub response: Option<String>,
@@ -51,7 +51,7 @@ impl TableItem {
         OutRecord {
             id: self.id,
             state: self.state,
-            method: self.method.unwrap_or_else(|| "".to_string()),
+            method: self.method.unwrap_or_else(|| Method::None),
             url: self.url.unwrap_or_else(|| "".to_string()),
             response_code: self
                 .response_code
@@ -87,10 +87,10 @@ fn get_db() -> Result<Connection> {
 }
 
 fn set_into_db(conn: &Connection, record: InRecord) -> Result<InRecord> {
-    fn compose(m: &Option<String>, u: &Option<String>) -> Option<Notify> {
+    fn compose(m: Option<Method>, u: &Option<String>) -> Option<Notify> {
         match (m, u) {
             (Some(method), Some(url)) => Some(Notify {
-                method: method.to_string(),
+                method: method,
                 url: url.to_string(),
             }),
             _ => None,
@@ -102,7 +102,7 @@ fn set_into_db(conn: &Connection, record: InRecord) -> Result<InRecord> {
             InRecord {
                 id: record.id,
                 state: record.state,
-                notify: record.notify.or(compose(&method, &url)),
+                notify: record.notify.or(compose(method, &url)),
             },
         ),
         None => create(
@@ -145,7 +145,7 @@ fn create(conn: &Connection, record: InRecord) -> Result<InRecord> {
         Some(Notify { method, url }) => stmt.execute(named_params! {
            ":id": &id,
            ":state": &state,
-           ":method": method,
+           ":method": method.to_string(),
            ":url": url,
            ":create_at": now,
            ":update_at": now
@@ -190,7 +190,7 @@ fn update(conn: &Connection, record: InRecord) -> Result<InRecord> {
             .execute(named_params! {
                ":id": id,
                ":state": state,
-               ":method": method,
+               ":method": method.to_string(),
                ":url": url,
                ":update_at": now
             })?,
@@ -230,11 +230,18 @@ pub fn list(num: usize) -> Result<Vec<OutRecord>> {
 
 fn parse_rows(rows: &mut Rows) -> Result<Vec<TableItem>> {
     let mut records = vec![];
+
     while let Some(row) = rows.next()? {
+        let method: Option<String> = row.get(2)?;
+        let method: Option<Method> = match method {
+            Some(m) => Some(m.parse()?),
+            None => None,
+        };
+
         records.push(TableItem {
             id: row.get(0)?,
             state: row.get(1)?,
-            method: row.get(2)?,
+            method: method,
             url: row.get(3)?,
             response_code: row.get(4)?,
             response: row.get(5)?,

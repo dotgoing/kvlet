@@ -1,12 +1,12 @@
 use anyhow::{anyhow, Result};
-use reqwest::blocking::Client;
 use std::fmt;
 use std::str::FromStr;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum Method {
     Get,
     Post,
+    None,
 }
 
 pub struct Response {
@@ -19,6 +19,7 @@ impl fmt::Display for Method {
         match self {
             Method::Get => write!(f, "{}", "get"),
             Method::Post => write!(f, "{}", "post"),
+            Method::None => write!(f, "{}", ""),
         }
     }
 }
@@ -30,7 +31,8 @@ impl FromStr for Method {
         match s {
             "get" => Ok(Method::Get),
             "post" => Ok(Method::Post),
-            _ => Err(anyhow!(format!("method can only be get or post {}", s))),
+            "" => Ok(Method::None),
+            _ => Err(anyhow!(format!("method not supported {}", s))),
         }
     }
 }

@@ -88,13 +88,13 @@ fn get(arg: &Get) -> Result<()> {
 }
 
 fn set(arg: &Set) -> Result<()> {
-    let notify = match (&arg.method, &arg.url) {
+    let notify = match (arg.method, &arg.url) {
         (Some(method), Some(url)) => Some(Notify {
-            method: method.to_string(),
+            method: method,
             url: url.to_string(),
         }),
         (None, Some(url)) => Some(Notify {
-            method: "get".to_string(),
+            method: Method::Get,
             url: url.to_string(),
         }),
         _ => None,
