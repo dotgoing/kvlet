@@ -1,7 +1,11 @@
+use super::hGet;
+use super::post;
+use super::Response;
 use anyhow::Result;
 use chrono::prelude::*;
 use rusqlite::named_params;
 use rusqlite::{Connection, Rows};
+use serde::__private::de::IdentifierDeserializer;
 use tabled::Tabled;
 
 /// 输出给用户可见的对象
@@ -36,7 +40,7 @@ struct TableItem {
     pub state: String,
     pub method: Option<String>,
     pub url: Option<String>,
-    pub response_code: Option<usize>,
+    pub response_code: Option<u16>,
     pub response: Option<String>,
     pub create_at: i64,
     pub update_at: i64,
@@ -82,11 +86,13 @@ fn get_db() -> Result<Connection> {
     Ok(conn)
 }
 
-pub fn set(record: InRecord) -> Result<usize> {
-    let conn = get_db()?;
-    fn compose(m: Option<String>, u: Option<String>) -> Option<Notify> {
+fn set_into_db(conn: &Connection, record: InRecord) -> Result<InRecord> {
+    fn compose(m: &Option<String>, u: &Option<String>) -> Option<Notify> {
         match (m, u) {
-            (Some(method), Some(url)) => Some(Notify { method, url }),
+            (Some(method), Some(url)) => Some(Notify {
+                method: method.to_string(),
+                url: url.to_string(),
+            }),
             _ => None,
         }
     }
@@ -96,7 +102,7 @@ pub fn set(record: InRecord) -> Result<usize> {
             InRecord {
                 id: record.id,
                 state: record.state,
-                notify: record.notify.or(compose(method, url)),
+                notify: record.notify.or(compose(&method, &url)),
             },
         ),
         None => create(
@@ -110,35 +116,75 @@ pub fn set(record: InRecord) -> Result<usize> {
     }
 }
 
-fn create(conn: &Connection, record: InRecord) -> Result<usize> {
+pub fn set(record: InRecord) -> Result<Response> {
+    let conn = get_db()?;
+    let id = String::from(&record.id);
+    fn notify(record: InRecord) -> Result<Response> {
+        let InRecord { id, state, notify } = record;
+        match notify {
+            Some(Notify { method, url }) => hGet(&id, &state, &url),
+            None => Ok(Response {
+                status_code: 0,
+                body: "".to_string(),
+            }),
+        }
+    }
+    set_into_db(&conn, record)
+        .and_then(notify)
+        .and_then(|Response { status_code, body }| {
+            update_response(&conn, &id, status_code, &body)
+                .and_then(|_| Ok(Response { status_code, body }))
+        })
+}
+
+fn create(conn: &Connection, record: InRecord) -> Result<InRecord> {
     let now = Local::now().timestamp_millis();
     let mut stmt = conn.prepare("INSERT INTO kvlet (id, state,method,url, create_at,update_at) VALUES (:id, :state,:method,:url, :create_at,:update_at)")?;
     let InRecord { id, state, notify } = record;
-    let affect = match notify {
+    match &notify {
         Some(Notify { method, url }) => stmt.execute(named_params! {
-           ":id": id,
-           ":state": state,
+           ":id": &id,
+           ":state": &state,
            ":method": method,
            ":url": url,
            ":create_at": now,
            ":update_at": now
         })?,
         None => stmt.execute(named_params! {
-           ":id": id,
-           ":state": state,
+           ":id": &id,
+           ":state": &state,
            ":method": "",
            ":url": "",
            ":create_at": now,
            ":update_at": now
         })?,
     };
-    Ok(affect)
+    Ok(InRecord { id, state, notify })
 }
 
-fn update(conn: &Connection, record: InRecord) -> Result<usize> {
+fn update_response(
+    conn: &Connection,
+    id: &String,
+    status_code: u16,
+    body: &String,
+) -> Result<usize> {
+    let now = Local::now().timestamp_millis();
+    let affected =   conn
+            .prepare("UPDATE kvlet set response_code = :response_code, response = :response, update_at = :update_at where id = :id")?
+            .execute(named_params! {
+               ":id": id,
+               ":response_code": status_code,
+               ":response": body,
+               ":update_at": now
+            })?;
+    println!("update done {} {} {}", id, status_code, body);
+    Ok(affected)
+}
+
+fn update(conn: &Connection, record: InRecord) -> Result<InRecord> {
     let now = Local::now().timestamp_millis();
     let InRecord { id, state, notify } = record;
-    let affect = match notify {
+    match &notify {
         Some(Notify { method, url }) => conn
             .prepare("UPDATE kvlet set state = :state, method = :method, url = :url, update_at = :update_at where id = :id")?
             .execute(named_params! {
@@ -156,7 +202,7 @@ fn update(conn: &Connection, record: InRecord) -> Result<usize> {
                ":update_at": now
             })?,
     };
-    Ok(affect)
+    Ok(InRecord { id, state, notify })
 }
 
 pub fn get(id: &str) -> Result<Option<OutRecord>> {
@@ -184,21 +230,14 @@ pub fn list(num: usize) -> Result<Vec<OutRecord>> {
 
 fn parse_rows(rows: &mut Rows) -> Result<Vec<TableItem>> {
     let mut records = vec![];
-    fn str_op(s: String) -> Option<String> {
-        if s.len() == 0 {
-            None
-        } else {
-            Some(s)
-        }
-    }
     while let Some(row) = rows.next()? {
         records.push(TableItem {
             id: row.get(0)?,
             state: row.get(1)?,
-            method: str_op(row.get(2)?),
-            url: str_op(row.get(3)?),
-            response_code: None,
-            response: None,
+            method: row.get(2)?,
+            url: row.get(3)?,
+            response_code: row.get(4)?,
+            response: row.get(5)?,
             create_at: row.get(6)?,
             update_at: row.get(7)?,
         });
