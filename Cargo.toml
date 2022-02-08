@@ -5,12 +5,17 @@ version = "0.1.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
-anyhow = "1" # 错误处理
-chrono = "0.4" 
+anyhow = "1"
+chrono = "0.4"
 clap = {version = "3.0.7", features = ["derive"]}
-fs2 = "0.4.3" 
-regex = "1.5.4" 
-rusqlite = "0.26.1" 
-reqwest = { version = "0.11", default-features = false, features = ["json", "rustls-tls"] } # HTTP 客户端
+env_logger = "0.9.0"
+fs2 = "0.4.3"
+futures = "0.3"
+log = "0.4.14"
+regex = "1.5.4"
+reqwest = {version = "0.11", default-features = false, features = ["json", "rustls-tls"]}
+rusqlite = "0.26.1"
+serde = {version = "1.0", features = ["derive"]}
+serde_json = "1.0"
 tabled = "0.4.2"
-tokio = {version = "1", features = ["full"]}# 异步处理库
+tokio = {version = "1", features = ["full"]}
