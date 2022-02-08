@@ -116,24 +116,39 @@ fn set_into_db(conn: &Connection, record: InRecord) -> Result<InRecord> {
     }
 }
 
-pub fn set(record: InRecord) -> Result<Response> {
-    let conn = get_db()?;
-    let id = String::from(&record.id);
-    fn notify(record: InRecord) -> Result<Response> {
-        let InRecord { id, state, notify } = record;
-        match notify {
-            Some(Notify { method, url }) => hGet(&id, &state, &url),
-            None => Ok(Response {
-                status_code: 0,
-                body: "".to_string(),
-            }),
-        }
+// notify if url exist
+fn notify(record: InRecord) -> Result<Option<Response>> {
+    let InRecord { id, state, notify } = record;
+    match notify {
+        Some(Notify {
+            method: Method::Get,
+            url,
+        }) => hGet(&id, &state, &url).and_then(|it| Ok(Some(it))),
+        Some(Notify {
+            method: Method::Post,
+            url,
+        }) => post(&id, &state, &url).and_then(|it| Ok(Some(it))),
+        _ => Ok(None),
     }
+}
+
+pub fn set(record: InRecord) -> Result<Option<Response>> {
+    let conn = get_db()?;
     set_into_db(&conn, record)
         .and_then(notify)
-        .and_then(|Response { status_code, body }| {
-            update_response(&conn, &id, status_code, &body)
-                .and_then(|_| Ok(Response { status_code, body }))
+        .and_then(|op| match op {
+            Some(Response {
+                id,
+                status_code,
+                body,
+            }) => update_response(&conn, &id, status_code, &body).and_then(|_| {
+                Ok(Some(Response {
+                    id,
+                    status_code,
+                    body,
+                }))
+            }),
+            None => Ok(None),
         })
 }
 
@@ -162,12 +177,7 @@ fn create(conn: &Connection, record: InRecord) -> Result<InRecord> {
     Ok(InRecord { id, state, notify })
 }
 
-fn update_response(
-    conn: &Connection,
-    id: &String,
-    status_code: u16,
-    body: &String,
-) -> Result<usize> {
+fn update_response(conn: &Connection, id: &str, status_code: u16, body: &str) -> Result<usize> {
     let now = Local::now().timestamp_millis();
     let affected =   conn
             .prepare("UPDATE kvlet set response_code = :response_code, response = :response, update_at = :update_at where id = :id")?
@@ -177,7 +187,6 @@ fn update_response(
                ":response": body,
                ":update_at": now
             })?;
-    println!("update done {} {} {}", id, status_code, body);
     Ok(affected)
 }
 

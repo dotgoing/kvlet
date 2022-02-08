@@ -1,4 +1,6 @@
 use anyhow::{anyhow, Result};
+use reqwest::blocking::Client;
+use serde::Serialize;
 use std::fmt;
 use std::str::FromStr;
 
@@ -10,8 +12,15 @@ pub enum Method {
 }
 
 pub struct Response {
+    pub id: String,
     pub status_code: u16,
     pub body: String,
+}
+
+#[derive(Serialize)]
+struct PostBody {
+    id: String,
+    state: String,
 }
 
 impl fmt::Display for Method {
@@ -37,11 +46,23 @@ impl FromStr for Method {
     }
 }
 
-pub fn post(id: String, state: String, url: String) -> Result<Response> {
-    let res = reqwest::blocking::get("http://httpbin.org/get")?;
+pub fn post(id: &str, state: &str, url: &str) -> Result<Response> {
+    let url = format!("{}?id={}&state={}", url, id, state);
+    println!("POST {}", url);
+    let client = Client::new();
+    let res = client
+        .post(url)
+        .json(&PostBody {
+            id: id.to_string(),
+            state: state.to_string(),
+        })
+        .send()?;
     let status_code = res.status().as_u16();
+    println!("Status: {}", status_code);
     let body = res.text()?;
+    println!("Body:\n{}", body);
     Ok(Response {
+        id: id.to_string(),
         status_code: status_code,
         body: body,
     })
@@ -49,13 +70,15 @@ pub fn post(id: String, state: String, url: String) -> Result<Response> {
 
 pub fn get(id: &str, state: &str, url: &str) -> Result<Response> {
     let url = format!("{}?id={}&state={}", url, id, state);
-    println!("url: {}", url);
-    let res = reqwest::blocking::get(url)?;
+    println!("GET {}", url);
+    let client = Client::new();
+    let res = client.get(url).send()?;
     let status_code = res.status().as_u16();
     println!("Status: {}", status_code);
     let body = res.text()?;
     println!("Body:\n{}", body);
     Ok(Response {
+        id: id.to_string(),
         status_code: status_code,
         body: body,
     })
