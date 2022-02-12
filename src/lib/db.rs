@@ -4,6 +4,7 @@ use super::Method;
 use super::Response;
 use anyhow::Result;
 use chrono::prelude::*;
+use log::info;
 use rusqlite::named_params;
 use rusqlite::{Connection, Rows};
 use tabled::Tabled;
@@ -20,7 +21,7 @@ pub struct OutRecord {
     pub create_at: String,
     pub update_at: String,
 }
-
+#[derive(Debug)]
 pub struct InRecord {
     pub id: String,
     pub state: String,
@@ -28,6 +29,7 @@ pub struct InRecord {
 }
 
 /// 是否要通知
+#[derive(Debug)]
 pub struct Notify {
     pub method: Method,
     pub url: String,
@@ -153,6 +155,7 @@ pub fn set(record: InRecord) -> Result<Option<Response>> {
 }
 
 fn create(conn: &Connection, record: InRecord) -> Result<InRecord> {
+    info!("create {:#?}", record);
     let now = Local::now().timestamp_millis();
     let mut stmt = conn.prepare("INSERT INTO kvlet (id, state,method,url, create_at,update_at) VALUES (:id, :state,:method,:url, :create_at,:update_at)")?;
     let InRecord { id, state, notify } = record;
@@ -191,6 +194,7 @@ fn update_response(conn: &Connection, id: &str, status_code: u16, body: &str) ->
 }
 
 fn update(conn: &Connection, record: InRecord) -> Result<InRecord> {
+    info!("update {:#?}", record);
     let now = Local::now().timestamp_millis();
     let InRecord { id, state, notify } = record;
     match &notify {
@@ -215,6 +219,7 @@ fn update(conn: &Connection, record: InRecord) -> Result<InRecord> {
 }
 
 pub fn get(id: &str) -> Result<Option<OutRecord>> {
+    info!("get : {}", id);
     get_table_item(id).map(|o| o.map(|t| t.show()))
 }
 

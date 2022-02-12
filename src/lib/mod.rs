@@ -1,6 +1,8 @@
+mod config;
 mod db;
 mod http;
 
+pub use config::config_log;
 pub use db::get;
 pub use db::list;
 pub use db::set;
@@ -9,5 +11,5 @@ pub use db::Notify;
 pub use db::OutRecord;
 use http::get as hGet;
 use http::post;
-use http::Response;
 pub use http::Method;
+use http::Response;

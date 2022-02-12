@@ -1,5 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
+use log::error;
 use reqwest::Url;
 use tabled::Table;
 
@@ -66,6 +67,7 @@ fn parse_url(s: &str) -> Result<String> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    lib::config_log();
     let opts: Opts = Opts::parse();
     let result = match opts.subcmd {
         SubCommand::Get(ref args) => get(args),
@@ -73,7 +75,7 @@ async fn main() -> Result<()> {
         SubCommand::List(ref args) => list(args),
     };
     if let Err(e) = result {
-        println!("{}", e);
+        error!("{}", e);
     }
     Ok(())
 }
