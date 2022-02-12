@@ -1,4 +1,5 @@
 use anyhow::{anyhow, Result};
+use log::info;
 use reqwest::blocking::Client;
 use serde::Serialize;
 use std::fmt;
@@ -48,7 +49,7 @@ impl FromStr for Method {
 
 pub fn post(id: &str, state: &str, url: &str) -> Result<Response> {
     let url = format!("{}?id={}&state={}", url, id, state);
-    println!("POST {}", url);
+    info!("POST {}", url);
     let client = Client::new();
     let res = client
         .post(url)
@@ -58,9 +59,9 @@ pub fn post(id: &str, state: &str, url: &str) -> Result<Response> {
         })
         .send()?;
     let status_code = res.status().as_u16();
-    println!("Status: {}", status_code);
+    info!("Status: {}", status_code);
     let body = res.text()?;
-    println!("Body:\n{}", body);
+    info!("Body:\n{}", body);
     Ok(Response {
         id: id.to_string(),
         status_code: status_code,
@@ -70,13 +71,13 @@ pub fn post(id: &str, state: &str, url: &str) -> Result<Response> {
 
 pub fn get(id: &str, state: &str, url: &str) -> Result<Response> {
     let url = format!("{}?id={}&state={}", url, id, state);
-    println!("GET {}", url);
+    info!("GET {}", url);
     let client = Client::new();
     let res = client.get(url).send()?;
     let status_code = res.status().as_u16();
-    println!("Status: {}", status_code);
+    info!("Status: {}", status_code);
     let body = res.text()?;
-    println!("Body:\n{}", body);
+    info!("Body:\n{}", body);
     Ok(Response {
         id: id.to_string(),
         status_code: status_code,
