@@ -110,7 +110,8 @@ fn set(arg: &Set) -> Result<()> {
 }
 
 fn list(arg: &List) -> Result<()> {
-    let records = lib::list(arg.num.unwrap_or_else(|| 10))?;
+    let lines = arg.num.unwrap_or_else(|| 10);
+    let records = lib::list(lines, &arg.state)?;
     let table = Table::new(records).to_string();
     println!("{}", table);
     Ok(())

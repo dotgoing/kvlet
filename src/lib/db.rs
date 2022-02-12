@@ -234,10 +234,26 @@ fn get_table_item(id: &str) -> Result<Option<TableItem>> {
     Ok(None)
 }
 
-pub fn list(num: usize) -> Result<Vec<OutRecord>> {
+pub fn list(num: usize, state: &Option<String>) -> Result<Vec<OutRecord>> {
+    match state {
+        Some(s) => list_filter(num, s),
+        None => list_num(num),
+    }
+}
+
+fn list_num(num: usize) -> Result<Vec<OutRecord>> {
     let conn = get_db()?;
     let mut stmt = conn.prepare("SELECT * FROM kvlet ORDER BY create_at DESC limit :num")?;
     let mut rows = stmt.query(&[(":num", &num.to_string())])?;
+    let records = parse_rows(&mut rows)?;
+    Ok(records.into_iter().map(|r| r.show()).collect())
+}
+
+fn list_filter(num: usize, state: &str) -> Result<Vec<OutRecord>> {
+    let conn = get_db()?;
+    let mut stmt = conn
+        .prepare("SELECT * FROM kvlet where state = :state ORDER BY create_at DESC limit :num")?;
+    let mut rows = stmt.query(&[(":num", &num.to_string()), (":state", &state.to_string())])?;
     let records = parse_rows(&mut rows)?;
     Ok(records.into_iter().map(|r| r.show()).collect())
 }
