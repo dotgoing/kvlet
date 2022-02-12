@@ -101,18 +101,12 @@ fn set(arg: &Set) -> Result<()> {
         }),
         _ => None,
     };
-    let set_result = lib::set(InRecord {
+    lib::set(InRecord {
         id: arg.key.to_string(),
         state: arg.state.to_string(),
         notify,
-    });
-    match set_result {
-        Ok(_) => Ok(()),
-        Err(err) => {
-            error!("fail to set {:?}", err);
-            Err(err)
-        }
-    }
+    })?;
+    Ok(())
 }
 
 fn list(arg: &List) -> Result<()> {
