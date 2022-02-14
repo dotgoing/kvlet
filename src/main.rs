@@ -7,7 +7,7 @@ use tabled::Table;
 mod lib;
 use lib::*;
 
-/// A tool to delete the oldest files
+/// A redis-like tool for storing key-value pairs, and notify url if specified
 #[derive(Parser, Debug)]
 #[clap(version = "1.0", author = "sean")]
 struct Opts {
@@ -22,7 +22,7 @@ enum SubCommand {
     List(List),
 }
 
-/// Delete files according the given args
+/// Get value(state) by key
 #[derive(Parser, Debug)]
 struct Get {
     /// Specify the key, it should be unique
@@ -30,24 +30,24 @@ struct Get {
     key: String,
 }
 
-/// Delete files according the given args
+/// List key-value pairs
 #[derive(Parser, Debug)]
 struct List {
-    /// List the latest n records
+    /// Show only the latest n keys
     #[clap(short, long)]
     num: Option<usize>,
-    /// Specify the state
+    /// Filter by value(state)
     #[clap(short, long)]
     state: Option<String>,
 }
 
-/// Show files which can be deleted according the given args
+/// Set (key, value) pair, if url is specified, the url will be notified
 #[derive(Parser, Debug)]
 struct Set {
-    /// Specify the key, it should be unique
+    /// Key should be unique
     #[clap(short, long)]
     key: String,
-    /// Specify the state
+    /// State can be any string, (running, done, fail etc)
     #[clap(short, long)]
     state: String,
     #[clap(short, long,parse(try_from_str=parse_url))]

@@ -66,7 +66,7 @@ impl TableItem {
     }
 
     fn from_time(time: i64) -> String {
-        Local.timestamp_millis(time).to_string()
+        Local.timestamp_millis(time).format("%F %T").to_string()
     }
 }
 
