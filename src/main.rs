@@ -72,8 +72,7 @@ fn parse_url(s: &str) -> Result<String> {
     Ok(s.into())
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     lib::config_log();
     let opts: Opts = Opts::parse();
     let result = match opts.subcmd {
