@@ -21,6 +21,7 @@ struct Opts {
 enum SubCommand {
     Get(Get),
     Set(Set),
+    Env(Env),
     List(List),
 }
 
@@ -31,6 +32,10 @@ struct Get {
     #[clap(short, long)]
     key: String,
 }
+
+/// Show env varialbes used by kvlet, show location of kvlet.db and kvlet.log
+#[derive(Parser, Debug)]
+struct Env {}
 
 /// List key-value pairs
 #[derive(Parser, Debug)]
@@ -74,6 +79,7 @@ async fn main() -> Result<()> {
     let result = match opts.subcmd {
         SubCommand::Get(ref args) => get(args),
         SubCommand::Set(ref args) => set(args),
+        SubCommand::Env(_) => show_env(),
         SubCommand::List(ref args) => list(args),
     };
     if let Err(e) = result {
@@ -116,5 +122,32 @@ fn list(arg: &List) -> Result<()> {
     let records = lib::list(lines, &arg.state)?;
     let table = Table::new(records).to_string();
     println!("{}", table);
+    Ok(())
+}
+
+use std::env;
+use std::path::Path;
+fn show_env() -> Result<()> {
+    let db_name = "kvlet.db";
+    match env::var("KVLET_DB_PATH") {
+        Ok(dir) => println!(
+            "KVLET_DB_PATH={} , kvlet.db is saved in {:?}",
+            &dir,
+            Path::new(&dir).join(db_name)
+        ),
+        _ => println!("KVLET_DB_PATH=. , kvlet.db is saved in ./{}", db_name),
+    };
+    let log_name = "kvlet.log";
+    match env::var("KVLET_LOG_PATH") {
+        Ok(dir) => println!(
+            "KVLET_LOG_PATH={} , kvlet.log is saved in {:?}",
+            &dir,
+            Path::new(&dir).join(log_name)
+        ),
+        _ => println!(
+            "KVLET_LOG_PATH=. , kvlet.log is saved in ./log/{}",
+            log_name
+        ),
+    }
     Ok(())
 }
