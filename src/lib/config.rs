@@ -2,13 +2,18 @@ use log::LevelFilter;
 use log4rs::append::file::FileAppender;
 use log4rs::config::{Appender, Config, Root};
 use log4rs::encode::pattern::PatternEncoder;
+use std::env;
 
 pub fn config_log() {
+    let log_path = match env::var("KVLET_LOG_PATH") {
+        Ok(dir) => format!("{}/kvlet.log", dir),
+        _ => format!("./log/kvlet.log"),
+    };
     let file_appender = FileAppender::builder()
         .encoder(Box::new(PatternEncoder::new(
             "{d(%Y-%m-%d %H:%M:%S)} [{l}] - {m}{n}",
         )))
-        .build("log/kvlet.log")
+        .build(log_path)
         .unwrap();
 
     let config = Config::builder()

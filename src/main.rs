@@ -7,7 +7,9 @@ use tabled::Table;
 mod lib;
 use lib::*;
 
-/// A redis-like tool for storing key-value pairs, and notify url if specified
+/// A redis-like tool for storing key-value pairs, and notify url if specified.
+/// 1. kvlet.db will be store in KVLET_DB_PATH, KVLET_DB_PATH default to current dir(.).
+/// 2. kvlet.log will be store in KVLET_LOG_PATH, KVLET_LOG_PATH default to current dir(./log).
 #[derive(Parser, Debug)]
 #[clap(version = "1.0", author = "sean")]
 struct Opts {

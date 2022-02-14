@@ -69,9 +69,15 @@ impl TableItem {
         Local.timestamp_millis(time).format("%F %T").to_string()
     }
 }
-
+use std::env;
 fn get_db() -> Result<Connection> {
-    let conn = Connection::open("kvlet.db")?;
+    let db_name = "kvlet.db";
+    let db_path = match env::var("KVLET_DB_PATH") {
+        Ok(dir) => format!("{}/{}", dir, db_name),
+        _ => format!("./{}", db_name),
+    };
+
+    let conn = Connection::open(db_path)?;
     conn.execute(
         "create table if not exists kvlet (
              id TEXT primary key,
