@@ -29,8 +29,10 @@ struct Get {
     /// Specify the key, it should be unique
     #[clap(short, long)]
     key: String,
+    /// Specify the notify url
     #[clap(short, long,parse(try_from_str=parse_url))]
     url: Option<String>,
+    /// Specify the notify method, default to POST
     #[clap(short, long, parse(try_from_str=parse_method))]
     method: Option<Method>,
 }
@@ -59,8 +61,10 @@ struct Set {
     /// State can be any string, (running, done, fail etc)
     #[clap(short, long)]
     state: String,
+    /// Specify the notify url
     #[clap(short, long,parse(try_from_str=parse_url))]
     url: Option<String>,
+    /// Specify the notify method, default to POST
     #[clap(short, long, parse(try_from_str=parse_method))]
     method: Option<Method>,
 }
