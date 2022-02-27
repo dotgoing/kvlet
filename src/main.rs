@@ -96,7 +96,7 @@ fn get(arg: &Get) -> Result<()> {
             url: url.to_string(),
         }),
         (None, Some(url)) => Some(Notify {
-            method: Method::Get,
+            method: Method::Post,
             url: url.to_string(),
         }),
         _ => None,
@@ -126,7 +126,7 @@ fn set(arg: &Set) -> Result<()> {
             url: url.to_string(),
         }),
         (None, Some(url)) => Some(Notify {
-            method: Method::Get,
+            method: Method::Post,
             url: url.to_string(),
         }),
         _ => None,
