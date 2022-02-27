@@ -104,7 +104,7 @@ fn set_into_db(conn: &Connection, record: InRecord) -> Result<InRecord> {
             _ => None,
         }
     }
-    match get_table_item(&record.id)? {
+    match get_table_item(&record.id, None)? {
         Some(TableItem { method, url, .. }) => update(
             &conn,
             InRecord {
@@ -224,17 +224,35 @@ fn update(conn: &Connection, record: InRecord) -> Result<InRecord> {
     Ok(InRecord { id, state, notify })
 }
 
-pub fn get(id: &str) -> Result<Option<OutRecord>> {
-    info!("get : {}", id);
-    get_table_item(id).map(|o| o.map(|t| t.show()))
+fn update_url(conn: &Connection, id: &str, notify: Notify) -> Result<()> {
+    info!("update url {} {:?}", id, &notify);
+    let now = Local::now().timestamp_millis();
+    let Notify { method, url } = notify;
+    conn.prepare(
+        "UPDATE kvlet set method = :method, url = :url, update_at = :update_at where id = :id",
+    )?
+    .execute(named_params! {
+       ":id": id,
+       ":method": method.to_string(),
+       ":url": url,
+       ":update_at": now
+    })?;
+    Ok(())
 }
 
-fn get_table_item(id: &str) -> Result<Option<TableItem>> {
+pub fn get(id: &str, notify: Option<Notify>) -> Result<Option<OutRecord>> {
+    get_table_item(id, notify).map(|o| o.map(|t| t.show()))
+}
+
+fn get_table_item(id: &str, notify: Option<Notify>) -> Result<Option<TableItem>> {
     let conn = get_db()?;
     let mut stmt = conn.prepare("SELECT * FROM kvlet where id = :id")?;
     let mut rows = stmt.query(&[(":id", id)])?;
     let records = parse_rows(&mut rows)?;
     for record in records {
+        if let Some(notify) = notify {
+            update_url(&conn, id, notify)?
+        }
         return Ok(Some(record));
     }
     Ok(None)

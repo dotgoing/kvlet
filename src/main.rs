@@ -1,6 +1,6 @@
 use anyhow::Result;
 use clap::Parser;
-use log::error;
+use log::{error, info, warn};
 use reqwest::Url;
 use tabled::Table;
 
@@ -29,6 +29,10 @@ struct Get {
     /// Specify the key, it should be unique
     #[clap(short, long)]
     key: String,
+    #[clap(short, long,parse(try_from_str=parse_url))]
+    url: Option<String>,
+    #[clap(short, long, parse(try_from_str=parse_method))]
+    method: Option<Method>,
 }
 
 /// Show env varialbes used by kvlet, show location of kvlet.db and kvlet.log
@@ -86,12 +90,33 @@ fn main() -> Result<()> {
 }
 
 fn get(arg: &Get) -> Result<()> {
-    match lib::get(&arg.key) {
-        Ok(Some(r)) => println!("{}", &r.state),
-        Ok(None) => println!(""),
-        Err(e) => println!("{}", e),
+    let notify = match (arg.method, &arg.url) {
+        (Some(method), Some(url)) => Some(Notify {
+            method: method,
+            url: url.to_string(),
+        }),
+        (None, Some(url)) => Some(Notify {
+            method: Method::Get,
+            url: url.to_string(),
+        }),
+        _ => None,
+    };
+
+    match lib::get(&arg.key, notify) {
+        Ok(Some(r)) => {
+            info!("get : {} {}", &arg.key, &r.state);
+            println!("{}", &r.state);
+            Ok(())
+        }
+        Ok(None) => {
+            warn!("no record found {}", arg.key);
+            Ok(())
+        }
+        Err(e) => {
+            error!("{}", e);
+            Err(e)
+        }
     }
-    Ok(())
 }
 
 fn set(arg: &Set) -> Result<()> {
