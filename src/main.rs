@@ -18,15 +18,24 @@ struct Opts {
 #[derive(Parser, Debug)]
 enum SubCommand {
     Get(Get),
+    Exist(Exist),
     Set(Set),
     Env(Env),
     List(List),
 }
 
+/// Check existance of key
+#[derive(Parser, Debug)]
+struct Exist {
+    /// Specify the key
+    #[clap(short, long)]
+    key: String,
+}
+
 /// Get value(state) by key
 #[derive(Parser, Debug)]
 struct Get {
-    /// Specify the key, it should be unique
+    /// Specify the key
     #[clap(short, long)]
     key: String,
     /// Specify the notify url, which will be notified on set command
@@ -82,6 +91,7 @@ fn main() -> Result<()> {
     lib::config_log();
     let opts: Opts = Opts::parse();
     let result = match opts.subcmd {
+        SubCommand::Exist(ref args) => exist(args),
         SubCommand::Get(ref args) => get(args),
         SubCommand::Set(ref args) => set(args),
         SubCommand::Env(_) => show_env(),
@@ -91,6 +101,24 @@ fn main() -> Result<()> {
         error!("{}", e);
     }
     Ok(())
+}
+
+fn exist(arg: &Exist) -> Result<()> {
+    match lib::get(&arg.key, None) {
+        Ok(Some(r)) => {
+            info!("exist : {} {}", &arg.key, &r.state);
+            println!("yes");
+            Ok(())
+        }
+        Ok(None) => {
+            println!("no");
+            Ok(())
+        }
+        Err(e) => {
+            error!("{}", e);
+            Err(e)
+        }
+    }
 }
 
 fn get(arg: &Get) -> Result<()> {
