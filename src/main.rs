@@ -38,10 +38,13 @@ struct Get {
     /// Specify the key
     #[clap(short, long)]
     key: String,
-    /// Specify the notify url, which will be notified on set command
+    /// if specified, show info only
+    #[clap(short, long)]
+    info: bool,
+    /// Update the notify url, which will be notified on set command
     #[clap(short, long,parse(try_from_str=parse_url))]
     url: Option<String>,
-    /// Specify the notify method, default to POST
+    /// Update the notify method, default to POST
     #[clap(short, long, parse(try_from_str=parse_method))]
     method: Option<Method>,
 }
@@ -70,6 +73,9 @@ struct Set {
     /// State can be any string, (running, done, fail etc)
     #[clap(short, long)]
     state: String,
+    /// Specify the info
+    #[clap(short, long)]
+    info: Option<String>,
     /// Specify the notify url, which will be notified on set command
     #[clap(short, long,parse(try_from_str=parse_url))]
     url: Option<String>,
@@ -137,7 +143,12 @@ fn get(arg: &Get) -> Result<()> {
     match lib::get(&arg.key, notify) {
         Ok(Some(r)) => {
             info!("get : {} {}", &arg.key, &r.state);
-            println!("{}", &r.state);
+            if arg.info {
+                println!("{}", &r.info);
+            } else {
+                println!("{}", &r.state);
+            }
+
             Ok(())
         }
         Ok(None) => {
@@ -163,9 +174,15 @@ fn set(arg: &Set) -> Result<()> {
         }),
         _ => None,
     };
+
+    let info = match &arg.info {
+        Some(str) => Some(str.to_string()),
+        None => None,
+    };
     lib::set(InRecord {
         id: arg.key.to_string(),
         state: arg.state.to_string(),
+        info: info,
         notify,
     })?;
     Ok(())

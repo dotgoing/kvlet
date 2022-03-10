@@ -14,6 +14,7 @@ use tabled::Tabled;
 pub struct OutRecord {
     pub id: String,
     pub state: String,
+    pub info: String,
     pub method: Method,
     pub url: String,
     pub response_code: String,
@@ -25,6 +26,7 @@ pub struct OutRecord {
 pub struct InRecord {
     pub id: String,
     pub state: String,
+    pub info: Option<String>,
     pub notify: Option<Notify>,
 }
 
@@ -40,6 +42,7 @@ pub struct Notify {
 struct TableItem {
     pub id: String,
     pub state: String,
+    pub info: Option<String>,
     pub method: Option<Method>,
     pub url: Option<String>,
     pub response_code: Option<u16>,
@@ -53,6 +56,7 @@ impl TableItem {
         OutRecord {
             id: self.id,
             state: self.state,
+            info: self.info.unwrap_or("".to_string()),
             method: self.method.unwrap_or_else(|| Method::None),
             url: self.url.unwrap_or_else(|| "".to_string()),
             response_code: self
@@ -82,6 +86,7 @@ fn get_db() -> Result<Connection> {
         "create table if not exists kvlet (
              id TEXT primary key,
              state TEXT not null,
+             info TEXT,
              method TEXT,
              url TEXT,
              response_code INTEGER,
@@ -105,28 +110,28 @@ fn set_into_db(conn: &Connection, record: InRecord) -> Result<InRecord> {
         }
     }
     match get_table_item(&record.id, None)? {
-        Some(TableItem { method, url, .. }) => update(
+        Some(TableItem {
+            method, url, info, ..
+        }) => update(
             &conn,
             InRecord {
-                id: record.id,
-                state: record.state,
                 notify: record.notify.or(compose(method, &url)),
+                info: record.info.or(info),
+                ..record
             },
         ),
-        None => create(
-            &conn,
-            InRecord {
-                id: record.id,
-                state: record.state,
-                notify: record.notify,
-            },
-        ),
+        None => create(&conn, record),
     }
 }
 
 // notify if url exist
 fn notify(record: InRecord) -> Result<Option<Response>> {
-    let InRecord { id, state, notify } = record;
+    let InRecord {
+        id,
+        state,
+        notify,
+        info: _,
+    } = record;
     match notify {
         Some(Notify {
             method: Method::Get,
@@ -163,12 +168,22 @@ pub fn set(record: InRecord) -> Result<Option<Response>> {
 fn create(conn: &Connection, record: InRecord) -> Result<InRecord> {
     info!("create {:#?}", record);
     let now = Local::now().timestamp_millis();
-    let mut stmt = conn.prepare("INSERT INTO kvlet (id, state,method,url, create_at,update_at) VALUES (:id, :state,:method,:url, :create_at,:update_at)")?;
-    let InRecord { id, state, notify } = record;
+    let mut stmt = conn.prepare("INSERT INTO kvlet (id, state, info,method,url, create_at,update_at) VALUES (:id, :state,:info, :method,:url, :create_at,:update_at)")?;
+    let InRecord {
+        id,
+        state,
+        notify,
+        info,
+    } = record;
+    let info_str = match &info {
+        Some(d) => d.to_string(),
+        None => "".to_string(),
+    };
     match &notify {
         Some(Notify { method, url }) => stmt.execute(named_params! {
            ":id": &id,
            ":state": &state,
+           ":info": info_str,
            ":method": method.to_string(),
            ":url": url,
            ":create_at": now,
@@ -177,13 +192,19 @@ fn create(conn: &Connection, record: InRecord) -> Result<InRecord> {
         None => stmt.execute(named_params! {
            ":id": &id,
            ":state": &state,
+           ":info": info_str,
            ":method": "",
            ":url": "",
            ":create_at": now,
            ":update_at": now
         })?,
     };
-    Ok(InRecord { id, state, notify })
+    Ok(InRecord {
+        id,
+        state,
+        notify,
+        info,
+    })
 }
 
 fn update_response(conn: &Connection, id: &str, status_code: u16, body: &str) -> Result<usize> {
@@ -202,26 +223,42 @@ fn update_response(conn: &Connection, id: &str, status_code: u16, body: &str) ->
 fn update(conn: &Connection, record: InRecord) -> Result<InRecord> {
     info!("update {:#?}", record);
     let now = Local::now().timestamp_millis();
-    let InRecord { id, state, notify } = record;
+    let InRecord {
+        id,
+        state,
+        notify,
+        info,
+    } = record;
+    let info_str = match &info {
+        Some(d) => d.to_string(),
+        None => "".to_string(),
+    };
     match &notify {
         Some(Notify { method, url }) => conn
-            .prepare("UPDATE kvlet set state = :state, method = :method, url = :url, update_at = :update_at where id = :id")?
+            .prepare("UPDATE kvlet set state = :state, info = :info, method = :method, url = :url, update_at = :update_at where id = :id")?
             .execute(named_params! {
                ":id": id,
                ":state": state,
+               ":info": info_str,
                ":method": method.to_string(),
                ":url": url,
                ":update_at": now
             })?,
         None => conn
-            .prepare("UPDATE kvlet set state = :state,update_at = :update_at  where id = :id")?
+            .prepare("UPDATE kvlet set state = :state, info = :info, update_at = :update_at  where id = :id")?
             .execute(named_params! {
                ":id": id,
                ":state": state,
+               ":info": info_str,
                ":update_at": now
             })?,
     };
-    Ok(InRecord { id, state, notify })
+    Ok(InRecord {
+        id,
+        state,
+        notify,
+        info,
+    })
 }
 
 fn update_url(conn: &Connection, id: &str, notify: Notify) -> Result<()> {
@@ -286,21 +323,23 @@ fn parse_rows(rows: &mut Rows) -> Result<Vec<TableItem>> {
     let mut records = vec![];
 
     while let Some(row) = rows.next()? {
-        let method: Option<String> = row.get(2)?;
+        let method: Option<String> = row.get(3)?;
         let method: Option<Method> = match method {
             Some(m) => Some(m.parse()?),
             None => None,
         };
 
+        let info: Option<String> = row.get(2)?;
         records.push(TableItem {
             id: row.get(0)?,
             state: row.get(1)?,
+            info: info,
             method: method,
-            url: row.get(3)?,
-            response_code: row.get(4)?,
-            response: row.get(5)?,
-            create_at: row.get(6)?,
-            update_at: row.get(7)?,
+            url: row.get(4)?,
+            response_code: row.get(5)?,
+            response: row.get(6)?,
+            create_at: row.get(7)?,
+            update_at: row.get(8)?,
         });
     }
     Ok(records)
