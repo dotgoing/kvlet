@@ -130,7 +130,7 @@ fn notify(record: InRecord) -> Result<Option<Response>> {
         id,
         state,
         notify,
-        info: _,
+        info,
     } = record;
     match notify {
         Some(Notify {
@@ -140,7 +140,7 @@ fn notify(record: InRecord) -> Result<Option<Response>> {
         Some(Notify {
             method: Method::Post,
             url,
-        }) => post(&id, &state, &url).and_then(|it| Ok(Some(it))),
+        }) => post(&id, &state, &info, &url).and_then(|it| Ok(Some(it))),
         _ => Ok(None),
     }
 }

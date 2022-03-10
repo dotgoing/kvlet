@@ -22,6 +22,7 @@ pub struct Response {
 struct PostBody {
     id: String,
     state: String,
+    info: String,
 }
 
 impl fmt::Display for Method {
@@ -47,15 +48,20 @@ impl FromStr for Method {
     }
 }
 
-pub fn post(id: &str, state: &str, url: &str) -> Result<Response> {
+pub fn post(id: &str, state: &str, info: &Option<String>, url: &str) -> Result<Response> {
     let url = format!("{}?id={}&state={}", url, id, state);
     info!("POST {}", url);
     let client = Client::new();
+    let info = match info {
+        Some(i) => i.to_string(),
+        None => "".to_string(),
+    };
     let res = client
         .post(url)
         .json(&PostBody {
             id: id.to_string(),
             state: state.to_string(),
+            info: info,
         })
         .send()?;
     let status_code = res.status().as_u16();
